@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>위드키즈 (With Kids) — 어린이 눈높이로 보는 제주 여행</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- 카카오 지도 SDK (장소 검색용) -->
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=8a6f8b77e0331278f5e98ed0ec6f7338&libraries=services"></script>
+
+<!-- Firebase (리뷰 저장용) — compat 방식이라 type="module" 없이 바로 씁니다 -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: { brandBlue:'#3B82F6', jejuOrange:'#F97316' },
+      fontFamily: { jua:['Jua','sans-serif'], sans:['Noto Sans KR','sans-serif'] }
+    }}
+  }
+</script>
+
+<style>
+  body { font-family:'Noto Sans KR', sans-serif; background:#F8FAFC; }
+  .font-jua { font-family:'Jua', sans-serif; }
+  .hero-banner { background:linear-gradient(180deg,#BAE6FD 0%,#E0F2FE 60%,#F0F9FF 100%); }
+  .animate-fade-in { animation:fadeIn .4s ease-out; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body class="text-slate-800">
+
+<!-- ══════════════ 헤더 ══════════════ -->
+<header class="bg-white/95 backdrop-blur sticky top-0 z-40 border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+
+    <div onclick="switchTab('main')" class="cursor-pointer flex items-center gap-2.5 flex-shrink-0">
+      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-xl shadow-sm">🍊</div>
+      <div class="leading-tight">
+        <div class="font-jua text-xl sm:text-2xl text-brandBlue">위드키즈</div>
+        <!-- (1) 사이트 소개 문구 수정 -->
+        <div class="text-[10px] sm:text-[11px] text-slate-500">어린이 눈높이로 모은 제주 관광 정보</div>
+      </div>
+    </div>
+
+    <!-- (3) 페이지 이름 변경 -->
+    <nav class="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+      <button id="nav-main" onclick="switchTab('main')" class="nav-btn font-jua text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-full whitespace-nowrap transition-all">
+        <i class="fa-solid fa-house mr-1"></i>홈
+      </button>
+      <button id="nav-tours" onclick="switchTab('tours')" class="nav-btn font-jua text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-full whitespace-nowrap transition-all">
+        <i class="fa-solid fa-children mr-1"></i>어린이·청소년 일일투어
+      </button>
+      <button id="nav-reviews" onclick="switchTab('reviews')" class="nav-btn font-jua text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-full whitespace-nowrap transition-all">
+        <i class="fa-solid fa-comment-dots mr-1"></i>어린이 눈높이 리뷰
+        <span id="reviewCountBadge" class="ml-1 bg-white/70 text-[10px] px-1.5 rounded-full">0</span>
+      </button>
+    </nav>
+
+    <!-- (10) 로그인 — 선택 사항 -->
+    <div class="flex-shrink-0">
+      <button id="loginBtn" onclick="openLoginModal()" class="text-xs font-bold border border-slate-300 text-slate-600 px-3 py-2 rounded-xl hover:border-brandBlue hover:text-brandBlue transition-colors whitespace-nowrap">
+        <i class="fa-regular fa-user mr-1"></i>로그인
+      </button>
+      <button id="profileBtn" onclick="openProfileModal()" class="hidden items-center gap-1.5 text-xs font-bold bg-sky-50 border border-sky-200 text-sky-700 px-3 py-2 rounded-xl hover:bg-sky-100 transition-colors whitespace-nowrap">
+        <span id="profileAvatar" class="text-base">🐣</span>
+        <span id="profileName">-</span>
+        <span id="profilePoints" class="bg-amber-400 text-white px-1.5 rounded-full text-[10px]">0P</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+
+<main class="min-h-screen">
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE 1 : 홈
+     ══════════════════════════════════════════════════════ -->
+<section id="page-main" class="block animate-fade-in">
+
+  <!-- 히어로 -->
+  <div class="hero-banner relative min-h-[500px] flex items-center justify-center py-14 px-4 overflow-hidden">
+    <div class="absolute top-8 left-10 text-white opacity-70 text-5xl"><i class="fa-solid fa-cloud"></i></div>
+    <div class="absolute top-24 right-14 text-white opacity-50 text-7xl"><i class="fa-solid fa-cloud"></i></div>
+
+    <div class="relative z-10 max-w-3xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 bg-white/90 backdrop-blur border border-amber-300 px-4 py-1.5 rounded-full text-[11px] sm:text-sm font-bold text-amber-800 shadow-sm mb-5">
+        🍊 2026 초·중등 스마트관광 데이터톤 · 숫자 너머의 제주를 발견하다
+      </div>
+
+      <h1 class="font-jua text-4xl sm:text-6xl text-brandBlue tracking-wide mb-3 drop-shadow-md">
+        위드키즈 <span class="text-amber-400">제주</span>
+      </h1>
+
+      <!-- (2) 본문 소개 문구 -->
+      <p class="font-jua text-lg sm:text-2xl text-slate-800 drop-shadow-sm mb-9">
+        어른이 아니라 <span class="bg-amber-300 px-2 rounded">어린이 눈높이</span>로 보는 제주 여행
+      </p>
+
+      <!-- 같은 가게, 두 개의 별점 -->
+      <div class="bg-white/95 backdrop-blur rounded-3xl border-2 border-white shadow-xl p-6 sm:p-7 max-w-2xl mx-auto">
+        <p class="text-[11px] sm:text-sm text-slate-500 mb-4">제주시의 어느 돈가스집. 같은 가게입니다.</p>
+        <div class="grid grid-cols-2 gap-3 sm:gap-5">
+          <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+            <div class="text-[11px] font-bold text-slate-500 mb-1.5">어른이 매긴 별점</div>
+            <div class="font-jua text-4xl sm:text-5xl text-slate-800">4.83</div>
+            <div class="text-[11px] text-slate-500 mt-1.5">리뷰 2,281개</div>
+          </div>
+          <div class="bg-amber-50 rounded-2xl p-4 border-2 border-amber-300">
+            <div class="text-[11px] font-bold text-amber-700 mb-1.5">아이가 매긴 별점</div>
+            <div class="font-jua text-4xl sm:text-5xl text-amber-500">?</div>
+            <div class="text-[11px] text-amber-700 mt-1.5">리뷰 0개</div>
+          </div>
+        </div>
+        <p class="text-sm sm:text-base text-slate-700 font-bold mt-5 leading-relaxed">
+          아기 의자가 있었을까요? 화장실에 발판은요?<br class="hidden sm:block">
+          <span class="text-brandBlue">2,281개의 리뷰 중 어느 것도 알려주지 않습니다.</span>
+        </p>
+      </div>
+
+      <div class="flex flex-wrap justify-center gap-3 mt-8">
+        <button onclick="switchTab('reviews')" class="font-jua text-sm sm:text-lg px-6 py-3 bg-amber-400 hover:bg-amber-500 text-slate-900 rounded-full shadow-lg transform hover:-translate-y-0.5 transition-all">
+          <i class="fa-solid fa-map-location-dot mr-1.5"></i>지도에서 회색 채우기
+        </button>
+        <button onclick="document.getElementById('why').scrollIntoView({behavior:'smooth'})" class="font-jua text-sm sm:text-lg px-6 py-3 bg-white/90 hover:bg-white text-brandBlue rounded-full shadow-lg transition-all">
+          <i class="fa-solid fa-arrow-down mr-1.5"></i>왜 만들었나요
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 왜 필요한가 -->
+  <div id="why" class="max-w-5xl mx-auto px-4 py-14">
+    <div class="text-center mb-10">
+      <span class="text-brandBlue font-bold text-[11px] tracking-widest block mb-2">WHY WITH KIDS</span>
+      <h2 class="font-jua text-3xl sm:text-4xl text-slate-800">여행 정보는 어른이 씁니다</h2>
+      <p class="text-slate-600 text-sm mt-2">아이는 여행의 절반이지만, 여행 정보 어디에도 없습니다.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="bg-white rounded-3xl p-6 border-2 border-sky-100 shadow-sm">
+        <div class="w-12 h-12 rounded-2xl bg-sky-100 flex items-center justify-center text-2xl mb-3">🔍</div>
+        <h3 class="font-jua text-xl text-slate-800 mb-2">리뷰에 나이가 없어요</h3>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          네이버 지도에도 구글 지도에도 리뷰는 넘칩니다. 그런데
+          <b>누가 몇 살 아이와 갔는지</b>는 어디에도 없습니다.
+          별점 4.8이 우리 아이에게도 4.8인지 알 방법이 없습니다.
+        </p>
+      </div>
+      <div class="bg-white rounded-3xl p-6 border-2 border-sky-100 shadow-sm">
+        <div class="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl mb-3">🚫</div>
+        <h3 class="font-jua text-xl text-slate-800 mb-2">아이는 글을 못 남겨요</h3>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          만 14세 미만은 리뷰 사이트에 가입할 수 없습니다.
+          호주의 한 12살 아이는 후기를 쓰고 싶었지만 가입이 안 돼
+          <b>종이에 써야 했습니다.</b> 아이 목소리는 처음부터 빠져 있습니다.
+        </p>
+      </div>
+      <div class="bg-white rounded-3xl p-6 border-2 border-sky-100 shadow-sm">
+        <div class="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center text-2xl mb-3">📏</div>
+        <h3 class="font-jua text-xl text-slate-800 mb-2">기준이 어른이에요</h3>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          "도보 10분"은 어른 걸음입니다. 아이는 보폭이 짧고 곧게 걷지 않아
+          훨씬 오래 걸립니다. <b>대기 15분</b>도 아이에게는 더 길게 느껴집니다.
+          같은 숫자가 아이에게는 다른 뜻입니다.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 우리의 답 -->
+  <div class="bg-white border-y-2 border-sky-100 py-14">
+    <div class="max-w-4xl mx-auto px-4">
+      <div class="text-center mb-8">
+        <span class="text-amber-600 font-bold text-[11px] tracking-widest block mb-2">OUR ANSWER</span>
+        <h2 class="font-jua text-3xl sm:text-4xl text-slate-800">사람을 확인하는 대신,<br class="sm:hidden"> 경험을 확인했습니다</h2>
+      </div>
+      <div class="bg-sky-50 rounded-3xl p-6 sm:p-8 border-2 border-sky-200">
+        <p class="text-sm text-slate-700 leading-relaxed mb-5">
+          "이 사람이 정말 어린이인가"는 확인할 방법이 없습니다. 그래서 질문을 바꿨습니다.
+          <b class="text-brandBlue">아이와 가보지 않으면 대답할 수 없는 것만 물어보기로</b> 했습니다.
+        </p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+          <div class="bg-white rounded-xl px-3 py-3 text-center border border-sky-200">
+            <div class="text-2xl mb-1">🍽️</div><div class="text-[11px] font-bold text-slate-700">식당은<br>식당 질문으로</div>
+          </div>
+          <div class="bg-white rounded-xl px-3 py-3 text-center border border-sky-200">
+            <div class="text-2xl mb-1">🛏️</div><div class="text-[11px] font-bold text-slate-700">숙소는<br>숙소 질문으로</div>
+          </div>
+          <div class="bg-white rounded-xl px-3 py-3 text-center border border-sky-200">
+            <div class="text-2xl mb-1">🎠</div><div class="text-[11px] font-bold text-slate-700">놀이시설은<br>놀이 질문으로</div>
+          </div>
+          <div class="bg-white rounded-xl px-3 py-3 text-center border border-sky-200">
+            <div class="text-2xl mb-1">🚻</div><div class="text-[11px] font-bold text-slate-700">화장실은<br>어디나 공통</div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          아이 없이 간 사람은 이 질문들을 채울 수 없습니다.
+          <b>답이 채워졌다는 사실 자체가 증거</b>가 됩니다.
+          그리고 계단이 있는지 없는지는 누가 답해도 같은 값이라, 취향이 아니라 <b>사실</b>이 쌓입니다.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 회색이 곧 문제 제기 -->
+  <div class="max-w-4xl mx-auto px-4 py-14">
+    <div class="bg-gradient-to-br from-slate-100 to-sky-50 rounded-3xl p-7 sm:p-10 border-2 border-slate-200">
+      <div class="flex flex-col sm:flex-row items-center gap-7">
+        <div class="flex-shrink-0">
+          <div class="flex gap-2 mb-2.5">
+            <span class="w-6 h-6 rounded-full bg-slate-400 block"></span><span class="w-6 h-6 rounded-full bg-slate-400 block"></span>
+            <span class="w-6 h-6 rounded-full bg-slate-400 block"></span><span class="w-6 h-6 rounded-full bg-green-500 block shadow-lg"></span>
+          </div>
+          <div class="flex gap-2 mb-2.5">
+            <span class="w-6 h-6 rounded-full bg-slate-400 block"></span><span class="w-6 h-6 rounded-full bg-slate-400 block"></span>
+            <span class="w-6 h-6 rounded-full bg-slate-400 block"></span><span class="w-6 h-6 rounded-full bg-slate-400 block"></span>
+          </div>
+          <div class="flex gap-2">
+            <span class="w-6 h-6 rounded-full bg-slate-400 block"></span><span class="w-6 h-6 rounded-full bg-slate-400 block"></span>
+            <span class="w-6 h-6 rounded-full bg-slate-400 block"></span><span class="w-6 h-6 rounded-full bg-slate-400 block"></span>
+          </div>
+        </div>
+        <div class="text-center sm:text-left">
+          <h2 class="font-jua text-2xl sm:text-3xl text-slate-800 mb-2.5">회색을 숨기지 않았습니다</h2>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            리뷰가 없는 장소도 지도에 그대로 보여줍니다.
+            제주에서 검색되는 장소는 수만 곳인데, 아이 눈높이 리뷰가 있는 곳은 아직 손에 꼽습니다.
+          </p>
+          <p class="text-sm font-bold text-brandBlue mt-3">이 회색이 바로 저희가 말하려는 문제입니다.</p>
+          <button onclick="switchTab('reviews')" class="mt-4 font-jua text-sm bg-brandBlue hover:brightness-95 text-white px-5 py-2.5 rounded-xl shadow-md transition-all">
+            지도에서 직접 채워보기 <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- (3) 사이트 구성 — 페이지 이름과 일치 -->
+  <div class="bg-white border-y-2 border-sky-100 py-14">
+    <div class="max-w-5xl mx-auto px-4">
+      <div class="text-center mb-9">
+        <span class="text-brandBlue font-bold text-[11px] tracking-widest block mb-2">WHAT'S INSIDE</span>
+        <h2 class="font-jua text-3xl sm:text-4xl text-slate-800">위드키즈에는 두 가지가 있어요</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl mx-auto">
+        <div onclick="switchTab('reviews')" class="cursor-pointer bg-amber-50 rounded-3xl p-6 border-2 border-amber-200 hover:border-amber-400 transition-colors">
+          <div class="text-3xl mb-3">💬</div>
+          <h3 class="font-jua text-xl text-slate-800 mb-2">어린이 눈높이 리뷰</h3>
+          <p class="text-xs text-slate-600 leading-relaxed mb-3">
+            제주 어디든 검색하고, 아이 기준으로 편한 곳인지 색깔로 확인합니다.
+            식당·숙소·놀이시설마다 다른 질문으로 물어봅니다. 회색인 곳은 우리가 직접 채웁니다.
+          </p>
+          <span class="text-[11px] font-bold text-amber-700">바로 가기 →</span>
+        </div>
+
+        <div onclick="switchTab('tours')" class="cursor-pointer bg-sky-50 rounded-3xl p-6 border-2 border-sky-200 hover:border-brandBlue transition-colors">
+          <div class="text-3xl mb-3">🧭</div>
+          <h3 class="font-jua text-xl text-slate-800 mb-2">어린이·청소년 일일투어</h3>
+          <p class="text-xs text-slate-600 leading-relaxed mb-3">
+            보호자 없이 <b>아이들끼리</b> 떠나는 하루. 전문 인솔 선생님이 함께합니다.
+            가족 일정에 맞추느라 미뤄둔 관심사를 마음껏 즐기는 시간입니다.
+          </p>
+          <span class="text-[11px] font-bold text-brandBlue">바로 가기 →</span>
+        </div>
+      </div>
+
+      <!-- (4) 홈에도 일일투어 소개 -->
+      <div class="mt-9 max-w-3xl mx-auto bg-gradient-to-br from-sky-50 to-white rounded-3xl border-2 border-sky-200 p-6 sm:p-8">
+        <div class="text-center mb-5">
+          <span class="inline-block bg-brandBlue text-white text-[11px] font-bold px-3 py-1 rounded-full mb-3">따로 또 같이</span>
+          <h3 class="font-jua text-2xl text-slate-800">가족 여행인데, 하루쯤은 따로 다녀도 괜찮아요</h3>
+        </div>
+        <p class="text-sm text-slate-700 leading-relaxed mb-4">
+          온 가족이 함께 다니는 시간은 소중합니다. 그런데 여행 내내 모든 일정을 맞추다 보면
+          <b>누군가는 참고 있는 순간</b>이 생깁니다. 아이는 놀이공원에 더 있고 싶은데 어른은 카페에 앉고 싶고,
+          어른은 미술관을 보고 싶은데 아이는 지루합니다.
+        </p>
+        <p class="text-sm text-slate-700 leading-relaxed mb-5">
+          그래서 생각했습니다. <b class="text-brandBlue">하루만 따로 다니면 어떨까?</b>
+          아이는 또래끼리 관심사를 즐기고, 어른은 어른의 하루를 보내는 겁니다.
+          안전은 전문 인솔 선생님이 책임집니다.
+        </p>
+        <div class="text-center">
+          <button onclick="switchTab('tours')" class="font-jua text-sm bg-brandBlue hover:brightness-95 text-white px-6 py-3 rounded-xl shadow-md transition-all">
+            일일투어 자세히 보기 <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 직접 측정한 환산표 -->
+  <div class="max-w-4xl mx-auto px-4 py-14">
+    <div class="text-center mb-8">
+      <span class="text-green-600 font-bold text-[11px] tracking-widest block mb-2">HOW WE MEASURED</span>
+      <h2 class="font-jua text-3xl sm:text-4xl text-slate-800">숫자는 저희가 직접 쟀습니다</h2>
+      <p class="text-slate-600 text-sm mt-2">인터넷에 없는 데이터라, 마이크로비트를 들고 직접 걸었습니다.</p>
+    </div>
+    <div class="bg-white rounded-3xl border-2 border-green-200 overflow-hidden shadow-sm">
+      <table class="w-full text-xs sm:text-sm">
+        <thead class="bg-green-50 text-slate-700">
+          <tr><th class="py-3 px-4 text-left font-bold">항목</th><th class="py-3 px-3 text-center font-bold">어른 기준</th><th class="py-3 px-3 text-center font-bold">아이 기준</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 text-slate-700">
+          <tr><td class="py-3 px-4 font-medium">도보 10분</td><td class="py-3 px-3 text-center text-slate-400">10분</td><td class="py-3 px-3 text-center font-bold text-green-600">16분</td></tr>
+          <tr><td class="py-3 px-4 font-medium">실제 걷는 거리 <span class="text-[10px] text-slate-400">(아이는 지그재그로 걸어요)</span></td><td class="py-3 px-3 text-center text-slate-400">700m</td><td class="py-3 px-3 text-center font-bold text-green-600">910m</td></tr>
+          <tr><td class="py-3 px-4 font-medium">대기 15분 <span class="text-[10px] text-slate-400">(놀거리가 없을 때)</span></td><td class="py-3 px-3 text-center text-slate-400">15분</td><td class="py-3 px-3 text-center font-bold text-green-600">체감 36분</td></tr>
+          <tr><td class="py-3 px-4 font-medium">쉼터 없이 걸을 수 있는 시간</td><td class="py-3 px-3 text-center text-slate-400">제한 없음</td><td class="py-3 px-3 text-center font-bold text-green-600">12분마다 필요</td></tr>
+        </tbody>
+      </table>
+      <p class="bg-slate-50 text-[11px] text-slate-500 px-4 py-3 border-t border-slate-100">
+        ※ 마이크로비트 가속도계와 나침반으로 걸음 수·방향 전환·시간 감각을 측정한 결과입니다. 학년별로 나누어 3회 반복 측정했습니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE 2 : 어린이·청소년 일일투어   (4)
+     ══════════════════════════════════════════════════════ -->
+<section id="page-tours" class="hidden animate-fade-in">
+
+  <!-- 소개 -->
+  <div class="bg-gradient-to-b from-sky-100 to-slate-50 py-14 px-4">
+    <div class="max-w-4xl mx-auto text-center">
+      <span class="inline-block bg-brandBlue text-white text-[11px] font-bold px-4 py-1.5 rounded-full mb-4">보호자 동행 없이 · 전문 인솔 선생님과 함께</span>
+      <h1 class="font-jua text-3xl sm:text-5xl text-slate-900 mb-4 leading-tight">
+        아이들끼리 떠나는<br class="sm:hidden"> 제주 하루
+      </h1>
+      <p class="text-slate-700 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">
+        부모님은 오지 않아도 됩니다. 또래 친구들과, 안전을 책임지는 인솔 선생님과 함께
+        <b>내가 가고 싶은 곳</b>으로 떠나는 하루짜리 여행입니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="max-w-5xl mx-auto px-4 py-12">
+
+    <!-- 왜 이런 투어가 필요한가 -->
+    <div class="bg-white rounded-3xl border-2 border-sky-200 p-6 sm:p-9 mb-12">
+      <h2 class="font-jua text-2xl sm:text-3xl text-slate-800 mb-5 text-center">왜 따로 다니는 하루가 필요할까요?</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-7">
+        <div class="bg-amber-50 rounded-2xl p-5 border border-amber-200">
+          <div class="text-2xl mb-2">😮‍💨</div>
+          <h3 class="font-bold text-slate-800 text-sm mb-1.5">모두를 맞추면 아무도 만족 못 해요</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            아이는 물놀이를 더 하고 싶고, 어른은 카페에서 쉬고 싶습니다.
+            결국 둘 다 조금씩 참으면서 어중간한 하루가 됩니다.
+          </p>
+        </div>
+        <div class="bg-sky-50 rounded-2xl p-5 border border-sky-200">
+          <div class="text-2xl mb-2">🎯</div>
+          <h3 class="font-bold text-slate-800 text-sm mb-1.5">관심사가 다른 건 당연해요</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            공룡, 우주, 바다생물, 게임, 사진. 아이에게도 좋아하는 게 있습니다.
+            같은 걸 좋아하는 친구와 하루를 보내면 훨씬 재미있습니다.
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-slate-800 text-white rounded-2xl p-6 text-center">
+        <p class="font-jua text-lg sm:text-xl mb-2">그래서 만들었습니다</p>
+        <p class="text-sm text-slate-300 leading-relaxed">
+          <b class="text-amber-400">미성년자만 참여하는</b> 일일투어입니다.
+          부모님은 숙소에서 쉬시거나 어른들끼리의 일정을 보내시면 됩니다.
+        </p>
+      </div>
+    </div>
+
+    <!-- 어떻게 안전한가 -->
+    <div class="mb-12">
+      <h2 class="font-jua text-2xl sm:text-3xl text-slate-800 mb-6 text-center">
+        <i class="fa-solid fa-shield-heart text-green-500 mr-1.5"></i>안전은 이렇게 지킵니다
+      </h2>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border-2 border-green-100 text-center">
+          <div class="text-3xl mb-2">👩‍🏫</div>
+          <h3 class="font-bold text-sm text-slate-800 mb-1">전문 인솔 선생님</h3>
+          <p class="text-[11px] text-slate-600 leading-relaxed">아동 안전 교육을 이수한 인솔자가 5명당 1명씩 함께합니다.</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border-2 border-green-100 text-center">
+          <div class="text-3xl mb-2">📍</div>
+          <h3 class="font-bold text-sm text-slate-800 mb-1">실시간 위치 공유</h3>
+          <p class="text-[11px] text-slate-600 leading-relaxed">보호자에게 현재 위치와 사진이 정해진 시간마다 전송됩니다.</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border-2 border-green-100 text-center">
+          <div class="text-3xl mb-2">🚐</div>
+          <h3 class="font-bold text-sm text-slate-800 mb-1">전용 차량 이동</h3>
+          <p class="text-[11px] text-slate-600 leading-relaxed">대중교통 환승 없이 전용 차량으로만 이동합니다.</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border-2 border-green-100 text-center">
+          <div class="text-3xl mb-2">📞</div>
+          <h3 class="font-bold text-sm text-slate-800 mb-1">언제든 연락</h3>
+          <p class="text-[11px] text-slate-600 leading-relaxed">아이도 보호자도 인솔자에게 바로 연락할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 투어 상품 -->
+    <div class="text-center mb-8">
+      <span class="text-jejuOrange font-bold text-[11px] tracking-widest block mb-2">TOUR PROGRAM</span>
+      <h2 class="font-jua text-2xl sm:text-3xl text-slate-800">관심사별로 고르는 하루</h2>
+      <p class="text-slate-600 text-sm mt-2">나이대에 맞춰 걷는 거리와 쉬는 시간을 다르게 짰습니다.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-7">
+
+      <!-- 투어 1 -->
+      <div class="bg-white rounded-3xl overflow-hidden shadow-lg border border-amber-100 flex flex-col justify-between">
+        <div>
+          <div class="h-40 bg-gradient-to-tr from-amber-600 to-amber-400 p-6 flex flex-col justify-end text-white relative overflow-hidden">
+            <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            <span class="text-[11px] font-semibold bg-black/30 backdrop-blur-sm w-max px-2.5 py-1 rounded-md mb-1.5">동물 · 자연</span>
+            <h3 class="font-jua text-xl leading-tight">동물 친구들과 하루</h3>
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 border-b border-slate-100 pb-3">
+              <span><i class="fa-regular fa-clock text-amber-500 mr-1"></i>09:30 ~ 17:30</span>
+              <span><i class="fa-solid fa-child text-amber-500 mr-1"></i>초등 1~3학년</span>
+            </div>
+            <div>
+              <h4 class="font-bold text-slate-800 text-xs mb-2"><i class="fa-solid fa-route text-amber-500 mr-1"></i>하루 일정</h4>
+              <ul class="text-[11px] text-slate-600 space-y-1.5 bg-amber-50/50 p-3 rounded-xl border border-amber-100/60">
+                <li><b>09:30</b> 숙소 앞에서 만나요</li>
+                <li><b>10:30</b> 화조원 — 알파카·새 먹이주기</li>
+                <li><b>12:30</b> 점심 (아이 메뉴 있는 식당)</li>
+                <li><b>14:00</b> 에코랜드 — 숲속 기차</li>
+                <li><b>16:00</b> 감귤체험농장 — 귤 따기</li>
+                <li><b>17:30</b> 숙소 앞에서 헤어져요</li>
+              </ul>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-[11px] text-slate-700">
+              <b class="text-green-700">아이 걸음 기준</b> · 총 걷는 거리 약 2.1km, 쉼터 5곳, 가장 오래 걷는 구간 11분
+            </div>
+            <div class="pt-2 border-t border-slate-100 flex items-baseline justify-between">
+              <span class="text-[11px] text-slate-400">어린이 1인</span>
+              <span class="font-jua text-2xl text-orange-600">89,000원</span>
+            </div>
+          </div>
+        </div>
+        <div class="p-5 pt-0">
+          <button onclick="openBookingModal('동물 친구들과 하루','89,000')" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-95 text-white font-bold text-sm py-3.5 rounded-2xl shadow-lg transition active:scale-95">
+            신청하기
+          </button>
+        </div>
+      </div>
+
+      <!-- 투어 2 -->
+      <div class="bg-white rounded-3xl overflow-hidden shadow-lg border border-sky-100 flex flex-col justify-between">
+        <div>
+          <div class="h-40 bg-gradient-to-tr from-sky-600 to-cyan-500 p-6 flex flex-col justify-end text-white relative overflow-hidden">
+            <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            <span class="text-[11px] font-semibold bg-black/30 backdrop-blur-sm w-max px-2.5 py-1 rounded-md mb-1.5">바다 · 과학</span>
+            <h3 class="font-jua text-xl leading-tight">바닷속 탐험대</h3>
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 border-b border-slate-100 pb-3">
+              <span><i class="fa-regular fa-clock text-sky-500 mr-1"></i>09:00 ~ 18:00</span>
+              <span><i class="fa-solid fa-child text-sky-500 mr-1"></i>초등 4~6학년</span>
+            </div>
+            <div>
+              <h4 class="font-bold text-slate-800 text-xs mb-2"><i class="fa-solid fa-route text-sky-500 mr-1"></i>하루 일정</h4>
+              <ul class="text-[11px] text-slate-600 space-y-1.5 bg-sky-50/50 p-3 rounded-xl border border-sky-100/60">
+                <li><b>09:00</b> 숙소 앞에서 만나요</li>
+                <li><b>10:15</b> 서귀포 잠수함 — 수심 40m 바닷속</li>
+                <li><b>12:30</b> 점심 (서귀포 향토음식 체험)</li>
+                <li><b>14:00</b> 주상절리대 — 바위가 왜 육각형일까</li>
+                <li><b>15:30</b> 아쿠아플라넷 — 생태 설명회</li>
+                <li><b>18:00</b> 숙소 앞에서 헤어져요</li>
+              </ul>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-[11px] text-slate-700">
+              <b class="text-green-700">아이 걸음 기준</b> · 총 걷는 거리 약 3.4km, 쉼터 6곳, 가장 오래 걷는 구간 14분
+            </div>
+            <div class="pt-2 border-t border-slate-100 flex items-baseline justify-between">
+              <span class="text-[11px] text-slate-400">어린이 1인</span>
+              <span class="font-jua text-2xl text-orange-600">105,000원</span>
+            </div>
+          </div>
+        </div>
+        <div class="p-5 pt-0">
+          <button onclick="openBookingModal('바닷속 탐험대','105,000')" class="w-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:brightness-95 text-white font-bold text-sm py-3.5 rounded-2xl shadow-lg transition active:scale-95">
+            신청하기
+          </button>
+        </div>
+      </div>
+
+      <!-- 투어 3 -->
+      <div class="bg-white rounded-3xl overflow-hidden shadow-lg border border-emerald-100 flex flex-col justify-between">
+        <div>
+          <div class="h-40 bg-gradient-to-tr from-emerald-600 to-teal-400 p-6 flex flex-col justify-end text-white relative overflow-hidden">
+            <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            <span class="text-[11px] font-semibold bg-black/30 backdrop-blur-sm w-max px-2.5 py-1 rounded-md mb-1.5">사진 · 미디어아트</span>
+            <h3 class="font-jua text-xl leading-tight">나만의 제주 기록하기</h3>
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 border-b border-slate-100 pb-3">
+              <span><i class="fa-regular fa-clock text-emerald-500 mr-1"></i>10:00 ~ 18:00</span>
+              <span><i class="fa-solid fa-child text-emerald-500 mr-1"></i>중학생</span>
+            </div>
+            <div>
+              <h4 class="font-bold text-slate-800 text-xs mb-2"><i class="fa-solid fa-route text-emerald-500 mr-1"></i>하루 일정</h4>
+              <ul class="text-[11px] text-slate-600 space-y-1.5 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/60">
+                <li><b>10:00</b> 숙소 앞에서 만나요</li>
+                <li><b>10:40</b> 아르떼뮤지엄 — 미디어아트 감상</li>
+                <li><b>12:40</b> 점심 (직접 고르는 로컬 식당)</li>
+                <li><b>14:00</b> 한림공원 — 사진 미션 활동</li>
+                <li><b>16:00</b> 협재 해변 — 노을 사진</li>
+                <li><b>18:00</b> 숙소 앞에서 헤어져요</li>
+              </ul>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-[11px] text-slate-700">
+              <b class="text-green-700">청소년 걸음 기준</b> · 총 걷는 거리 약 4.8km, 쉼터 4곳, 가장 오래 걷는 구간 20분
+            </div>
+            <div class="pt-2 border-t border-slate-100 flex items-baseline justify-between">
+              <span class="text-[11px] text-slate-400">청소년 1인</span>
+              <span class="font-jua text-2xl text-orange-600">95,000원</span>
+            </div>
+          </div>
+        </div>
+        <div class="p-5 pt-0">
+          <button onclick="openBookingModal('나만의 제주 기록하기','95,000')" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-95 text-white font-bold text-sm py-3.5 rounded-2xl shadow-lg transition active:scale-95">
+            신청하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 안내 -->
+    <div class="mt-10 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 text-xs text-slate-700 leading-relaxed">
+      <b class="text-amber-800"><i class="fa-solid fa-circle-info mr-1"></i>신청 전 확인해 주세요</b><br>
+      · 보호자 동의서 작성이 필요합니다. · 아이가 혼자 참여하기 어려운 사정이 있으면 미리 알려주세요.<br>
+      · 최소 4명 이상 모여야 출발합니다. · 모든 일정은 아이 걸음 기준으로 다시 계산해 짰습니다.
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE 3 : 어린이 눈높이 리뷰
+     ══════════════════════════════════════════════════════ -->
+<section id="page-reviews" class="hidden animate-fade-in">
+  <div class="max-w-6xl mx-auto px-4 py-10">
+
+    <div class="text-center mb-8">
+      <h1 class="font-jua text-3xl sm:text-4xl text-slate-800 mb-2">💬 어린이 눈높이 리뷰</h1>
+      <p class="text-slate-600 text-sm">아이와 가보지 않으면 대답할 수 없는 것만 물어봅니다.</p>
+    </div>
+
+    <!-- 지도 + 검색 -->
+    <div class="bg-white p-5 rounded-2xl border-2 border-sky-200 shadow-sm mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="font-jua text-xl text-slate-800">🗺️ 제주 어디든 찾아보세요</h3>
+          <p class="text-xs text-slate-600 mt-0.5">회색 핀은 <b>아직 어린이 리뷰가 없는 곳</b>이에요. 우리가 채워봐요!</p>
+        </div>
+        <div id="mapProgress" class="text-xs text-slate-600 font-medium whitespace-nowrap"></div>
+      </div>
+
+      <div class="flex gap-2 mb-4">
+        <input type="text" id="kakaoSearchInput" value="제주 돈가스" placeholder="예: 제주 돈가스, 함덕 카페, 성산일출봉"
+               class="flex-grow border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:border-brandBlue focus:outline-none">
+        <button onclick="runKakaoSearch()" class="font-jua bg-brandBlue hover:brightness-95 text-white px-5 py-2.5 rounded-xl text-sm whitespace-nowrap shadow-sm">검색</button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div id="kakaoResultList" class="order-2 lg:order-1 max-h-[380px] overflow-y-auto pr-1 space-y-1.5">
+          <p class="text-xs text-slate-400 py-8 text-center">검색어를 입력해 보세요.</p>
+        </div>
+        <div id="kakaoMap" class="order-1 lg:order-2 w-full h-[380px] rounded-xl border border-slate-200 bg-slate-100"></div>
+      </div>
+
+      <div class="flex flex-wrap gap-4 mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-600">
+        <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></i>리뷰 없음</span>
+        <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></i>아이에게 편함</span>
+        <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></i>보통</span>
+        <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></i>불편함</span>
+      </div>
+    </div>
+
+    <!-- 리뷰 목록 -->
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-jua text-2xl text-slate-800">우리가 쓴 리뷰 <span id="reviewTotal" class="text-brandBlue">0</span>개</h2>
+      <button onclick="openWriteReviewModal()" class="font-jua text-sm bg-amber-400 hover:bg-amber-500 text-slate-900 px-5 py-2.5 rounded-xl shadow-sm transition-all">
+        <i class="fa-solid fa-pen mr-1"></i>리뷰 쓰기
+      </button>
+    </div>
+
+    <div id="reviewsGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <!-- JS 렌더 -->
+    </div>
+  </div>
+</section>
+
+</main>
+
+
+<!-- ══════════════ 푸터 (9: 만든 사람 삭제) ══════════════ -->
+<footer class="bg-sky-100 border-t border-sky-200 text-slate-700 py-9 px-4 mt-12 text-xs sm:text-sm">
+  <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-7">
+    <div>
+      <div class="font-jua text-xl text-brandBlue mb-2">🍊 위드키즈 (With Kids)</div>
+      <p class="text-slate-600 leading-relaxed text-xs">
+        어른 기준으로만 쓰인 제주 여행 정보를<br>어린이 눈높이로 다시 모으는 프로젝트입니다.
+      </p>
+      <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">
+        2026 초·중등 스마트관광 데이터톤<br>&lsquo;숫자 너머의 제주를 발견하다&rsquo; 출품작
+      </p>
+    </div>
+    <div>
+      <h4 class="font-bold text-slate-800 mb-2.5 text-sm"><i class="fa-solid fa-database text-brandBlue mr-1.5"></i>사용한 데이터</h4>
+      <ul class="space-y-1.5 text-slate-600 text-xs leading-relaxed">
+        <li><b>장소 검색</b> · 카카오 로컬 API</li>
+        <li><b>어린이 리뷰</b> · 직접 수집 (시설별 사실 체크)</li>
+        <li><b>걸음·대기시간 환산</b> · 마이크로비트 직접 측정</li>
+      </ul>
+      <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">어린이 리뷰는 이름·사진·위치를 저장하지 않습니다.</p>
+    </div>
+  </div>
+  <div class="max-w-5xl mx-auto border-t border-sky-200 mt-7 pt-4 text-center text-slate-500 text-[11px] leading-relaxed">
+    학생 프로젝트로 만든 시연용 사이트입니다. 실제 예약·판매는 하지 않습니다.<br>지도 데이터 &copy; Kakao
+  </div>
+</footer>
+
+
+<!-- ══════════════ 리뷰 작성 모달 ══════════════ -->
+<div id="writeReviewModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-3xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
+    <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl">
+      <h3 class="font-jua text-xl text-slate-800">✏️ 어린이 눈높이 리뷰 쓰기</h3>
+      <button onclick="closeWriteReviewModal()" class="text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="p-6 space-y-5 text-sm">
+
+      <!-- 장소 -->
+      <div>
+        <label class="block font-bold text-slate-700 mb-1.5">어디에 다녀왔나요? <span class="text-red-500">*</span></label>
+        <input type="text" id="revPlaceName" placeholder="지도에서 고르거나 직접 입력하세요"
+               class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:border-brandBlue focus:outline-none">
+        <p class="text-[11px] text-slate-500 mt-1.5">💡 위 지도에서 <b>첫 리뷰 남기기</b>를 누르면 자동으로 채워져요.</p>
+      </div>
+
+      <!-- (5) 시설 종류 선택 -->
+      <div>
+        <label class="block font-bold text-slate-700 mb-1.5">어떤 곳인가요? <span class="text-red-500">*</span></label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="selectCategory('food')" data-cat="food"
+                  class="cat-btn border-2 border-slate-200 rounded-xl py-3 text-center hover:border-amber-400 transition-colors">
+            <div class="text-2xl">🍽️</div><div class="text-xs font-bold mt-1">식당</div>
+          </button>
+          <button type="button" onclick="selectCategory('stay')" data-cat="stay"
+                  class="cat-btn border-2 border-slate-200 rounded-xl py-3 text-center hover:border-amber-400 transition-colors">
+            <div class="text-2xl">🛏️</div><div class="text-xs font-bold mt-1">숙소</div>
+          </button>
+          <button type="button" onclick="selectCategory('play')" data-cat="play"
+                  class="cat-btn border-2 border-slate-200 rounded-xl py-3 text-center hover:border-amber-400 transition-colors">
+            <div class="text-2xl">🎠</div><div class="text-xs font-bold mt-1">놀이·체험</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 시설별 질문이 여기에 나타납니다 -->
+      <div id="factQuestionBox" class="hidden bg-sky-50 p-4 rounded-2xl border border-sky-200">
+        <label class="block font-bold text-sky-900 text-xs mb-3">
+          <i class="fa-solid fa-clipboard-check text-brandBlue mr-1"></i>
+          <span id="factBoxTitle">아이 눈높이 체크</span> <span class="font-normal text-slate-500">(본 대로 표시해 주세요)</span>
+        </label>
+        <div id="factQuestions" class="space-y-2"></div>
+      </div>
+
+      <!-- 별점 -->
+      <div>
+        <label class="block font-bold text-slate-700 mb-1.5">아이가 매긴 별점</label>
+        <div id="starPicker" class="flex gap-1.5 text-3xl"></div>
+      </div>
+
+      <!-- 한마디 -->
+      <div>
+        <label class="block font-bold text-slate-700 mb-1.5">한마디 남기기</label>
+        <textarea id="revComment" rows="3" maxlength="200" placeholder="예: 계단이 많아서 힘들었어요. 그런데 물고기는 진짜 멋있었어요!"
+                  class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:border-brandBlue focus:outline-none resize-none"></textarea>
+        <p class="text-[11px] text-slate-500 mt-1.5">⚠️ 이름, 학교, 사는 곳은 쓰지 마세요.</p>
+      </div>
+
+      <!-- 작성자 -->
+      <div id="authorRow">
+        <label class="block font-bold text-slate-700 mb-1.5">누가 썼나요?</label>
+        <div class="flex gap-2">
+          <input type="text" id="revNickname" maxlength="10" placeholder="별명 (예: 감귤이)"
+                 class="flex-grow border border-slate-300 rounded-xl px-4 py-2.5 focus:border-brandBlue focus:outline-none">
+          <select id="revAge" class="border border-slate-300 rounded-xl px-3 py-2.5 text-xs">
+            <option value="">나이</option>
+            <option>7세</option><option>8세</option><option>9세</option><option>10세</option>
+            <option>11세</option><option>12세</option><option>13세</option><option>14세</option>
+            <option>15세 이상</option>
+          </select>
+        </div>
+        <p id="loginHint" class="text-[11px] text-slate-500 mt-1.5">
+          로그인하지 않아도 리뷰를 쓸 수 있어요.
+          <button onclick="closeWriteReviewModal();openLoginModal()" class="text-brandBlue font-bold underline">로그인</button>하면 포인트가 쌓여요!
+        </p>
+      </div>
+
+      <button onclick="submitReview()" id="submitReviewBtn"
+              class="w-full font-jua text-lg bg-amber-400 hover:bg-amber-500 text-slate-900 py-3.5 rounded-2xl shadow-md transition-all">
+        리뷰 등록하기
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ (10) 로그인 모달 ══════════════ -->
+<div id="loginModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-3xl w-full max-w-sm p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-jua text-xl text-slate-800">🐣 로그인</h3>
+      <button onclick="closeLoginModal()" class="text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="bg-sky-50 border border-sky-200 rounded-2xl p-3.5 text-[11px] text-slate-600 leading-relaxed mb-4">
+      로그인은 <b>선택</b>이에요. 안 해도 리뷰를 쓸 수 있습니다.<br>
+      로그인하면 리뷰를 쓸 때마다 <b class="text-amber-600">포인트</b>가 쌓이고, 아바타를 꾸밀 수 있어요.<br>
+      <span class="text-slate-500">이름·이메일·전화번호는 묻지 않습니다.</span>
+    </div>
+
+    <div class="space-y-3 text-sm">
+      <div>
+        <label class="block font-bold text-slate-700 mb-1.5 text-xs">별명</label>
+        <input type="text" id="loginNick" maxlength="10" placeholder="예: 감귤이"
+               class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:border-brandBlue focus:outline-none">
+      </div>
+      <div>
+        <label class="block font-bold text-slate-700 mb-1.5 text-xs">비밀번호 (숫자 4자리)</label>
+        <input type="password" id="loginPin" maxlength="4" inputmode="numeric" placeholder="••••"
+               class="w-full border border-slate-300 rounded-xl px-4 py-2.5 tracking-widest focus:border-brandBlue focus:outline-none">
+      </div>
+      <p id="loginMsg" class="text-xs text-red-500 hidden"></p>
+      <button onclick="doLogin()" class="w-full font-jua bg-brandBlue hover:brightness-95 text-white py-3 rounded-2xl shadow-md transition-all">
+        시작하기
+      </button>
+      <p class="text-[11px] text-slate-500 text-center">처음 쓰는 별명이면 자동으로 만들어져요.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ (10) 프로필 · 아바타 모달 ══════════════ -->
+<div id="profileModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-3xl w-full max-w-md p-6 max-h-[92vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-jua text-xl text-slate-800">내 아바타</h3>
+      <button onclick="closeProfileModal()" class="text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="text-center bg-gradient-to-b from-sky-50 to-white rounded-3xl border-2 border-sky-200 p-6 mb-5">
+      <div id="bigAvatar" class="text-6xl mb-2">🐣</div>
+      <div id="bigName" class="font-jua text-xl text-slate-800">-</div>
+      <div class="mt-2 inline-flex items-center gap-1.5 bg-amber-400 text-white px-3 py-1 rounded-full text-xs font-bold">
+        <i class="fa-solid fa-star"></i><span id="bigPoints">0</span> 포인트
+      </div>
+      <p class="text-[11px] text-slate-500 mt-2">리뷰 1개당 10포인트</p>
+    </div>
+
+    <h4 class="font-bold text-slate-700 text-sm mb-2.5">아바타 고르기</h4>
+    <div id="avatarGrid" class="grid grid-cols-5 gap-2 mb-5"></div>
+
+    <button onclick="doLogout()" class="w-full text-xs text-slate-500 border border-slate-300 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+      로그아웃
+    </button>
+  </div>
+</div>
+
+
+<!-- ══════════════ 예약 모달 ══════════════ -->
+<div id="bookingModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-3xl w-full max-w-sm p-6 text-center">
+    <div class="text-5xl mb-3">🧭</div>
+    <h3 class="font-jua text-xl text-slate-800 mb-1" id="bookingTitle">-</h3>
+    <p class="text-2xl font-jua text-orange-600 mb-4" id="bookingPrice">-</p>
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-slate-700 leading-relaxed mb-5">
+      이 사이트는 <b>데이터톤 출품작</b>이라 실제 예약은 되지 않습니다.<br>
+      실제 서비스라면 여기서 보호자 동의서 작성과 결제가 이루어집니다.
+    </div>
+    <button onclick="closeBookingModal()" class="w-full font-jua bg-slate-800 text-white py-3 rounded-2xl">닫기</button>
+  </div>
+</div>
+
+
+<div id="toastContainer" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
+
+
+<script>
+/* ══════════════════════════════════════════════════════
+   (6) Firebase — 리뷰 저장
+   ══════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAo5pQ-hUbKE-VJEPc1I2b5-L7bKnCK0IE",
+  authDomain: "withkids-b02f6.firebaseapp.com",
+  databaseURL: "https://withkids-b02f6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "withkids-b02f6",
+  storageBucket: "withkids-b02f6.firebasestorage.app",
+  messagingSenderId: "643934208104",
+  appId: "1:643934208104:web:8cdf137f5114c96ab5fbdd"
+};
+
+let db = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+} catch (e) {
+  console.error('Firebase 연결 실패:', e);
+}
+
+/* (7) 가상 리뷰 없음. 전부 Firebase에서 가져옵니다. */
+let reviewsList = [];
+
+/* Firebase 실시간 구독 — 누가 리뷰를 쓰면 모든 사람 화면에 바로 반영됩니다 */
+function listenReviews() {
+  if (!db) { showToast('⚠️ 데이터베이스에 연결하지 못했어요'); return; }
+
+  db.ref('reviews').on('value', snap => {
+    const val = snap.val() || {};
+    reviewsList = Object.keys(val).map(k => Object.assign({ id: k }, val[k]));
+    reviewsList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    renderReviews();
+    renderKakaoResults();          // 핀 색깔 다시 계산
+    document.getElementById('reviewTotal').innerText = reviewsList.length;
+    document.getElementById('reviewCountBadge').innerText = reviewsList.length;
+  }, err => {
+    console.error(err);
+    showToast('⚠️ 리뷰를 불러오지 못했어요');
+  });
+}
+
+
+/* ══════════════════════════════════════════════════════
+   (5) 시설 종류별 질문
+   ══════════════════════════════════════════════════════ */
+
+/* 어디에나 공통으로 물어보는 것 */
+const COMMON_Q = [
+  { key:'toilet',   label:'화장실에 아이용 발판이나 작은 변기가 있었나요?' },
+  { key:'stepFree', label:'계단 없이 들어갈 수 있었나요?' }
+];
+
+/* 시설마다 다르게 물어보는 것 — 각 4개 */
+const CATEGORY_Q = {
+  food: {
+    name:'식당', icon:'🍽️',
+    questions:[
+      { key:'highChair', label:'아기 의자가 있었나요?' },
+      { key:'photoMenu', label:'사진이 있는 메뉴판이라 내가 고를 수 있었나요?' },
+      { key:'kidsMenu',  label:'내가 먹을 수 있는 음식이 있었나요?' },
+      { key:'waitSeat',  label:'기다리는 동안 앉을 곳이 있었나요?' }
+    ]
+  },
+  stay: {
+    name:'숙소', icon:'🛏️',
+    questions:[
+      { key:'bedGuard',  label:'침대에서 떨어지지 않게 막아주는 것이 있었나요?' },
+      { key:'kidsBath',  label:'아이용 욕조나 목욕 의자가 있었나요?' },
+      { key:'playSpace', label:'방 안에서 놀 수 있는 공간이 있었나요?' },
+      { key:'safePlug',  label:'콘센트에 안전 덮개가 있었나요?' }
+    ]
+  },
+  play: {
+    name:'놀이·체험시설', icon:'🎠',
+    questions:[
+      { key:'heightOk',  label:'키가 작아도 할 수 있는 것이 있었나요?' },
+      { key:'shade',     label:'그늘이나 쉴 수 있는 곳이 있었나요?' },
+      { key:'selfPlay',  label:'어른 도움 없이 혼자 할 수 있었나요?' },
+      { key:'waitFun',   label:'줄 서서 기다리는 동안 볼거리가 있었나요?' }
+    ]
+  }
+};
+
+let selectedCategory = null;
+let selectedPlaceId = null;
+let selectedStars = 0;
+
+function selectCategory(cat) {
+  selectedCategory = cat;
+
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    const on = b.dataset.cat === cat;
+    b.className = 'cat-btn border-2 rounded-xl py-3 text-center transition-colors ' +
+      (on ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:border-amber-400');
+  });
+
+  const box = document.getElementById('factQuestionBox');
+  const list = document.getElementById('factQuestions');
+  const conf = CATEGORY_Q[cat];
+
+  document.getElementById('factBoxTitle').innerText = conf.icon + ' ' + conf.name + ' 눈높이 체크';
+
+  /* 시설별 4개 + 공통 2개 */
+  const all = conf.questions.concat(COMMON_Q);
+  list.innerHTML = all.map(q =>
+    '<label class="flex items-start gap-2.5 bg-white px-3 py-2.5 rounded-xl border border-sky-100 cursor-pointer hover:border-sky-300 transition-colors">' +
+      '<input type="checkbox" data-fact="' + q.key + '" class="accent-brandBlue w-4 h-4 mt-0.5 flex-shrink-0">' +
+      '<span class="text-xs leading-snug">' + q.label + '</span>' +
+    '</label>'
+  ).join('');
+
+  box.classList.remove('hidden');
+}
+
+/* 사실 체크 개수로 3색 판정 — 총 6문항 */
+function gradePlace(placeId) {
+  const mine = reviewsList.filter(r => r.placeId === placeId && r.facts);
+  if (!mine.length) return null;
+
+  let sum = 0;
+  mine.forEach(r => {
+    sum += Object.values(r.facts).filter(Boolean).length;
+  });
+  const avg = sum / mine.length;      // 평균 몇 개나 '예'였나 (0~6)
+
+  if (avg >= 4) return 'good';
+  if (avg >= 2) return 'mid';
+  return 'bad';
+}
+
+
+/* ══════════════════════════════════════════════════════
+   별점
+   ══════════════════════════════════════════════════════ */
+function renderStars() {
+  document.getElementById('starPicker').innerHTML = [1,2,3,4,5].map(n =>
+    '<button type="button" onclick="setStars(' + n + ')" class="transition-transform hover:scale-110">' +
+    (n <= selectedStars ? '⭐' : '☆') + '</button>'
+  ).join('');
+}
+function setStars(n) { selectedStars = n; renderStars(); }
+
+
+/* ══════════════════════════════════════════════════════
+   리뷰 작성
+   ══════════════════════════════════════════════════════ */
+function openWriteReviewModal() {
+  const m = document.getElementById('writeReviewModal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+
+  /* 로그인했으면 별명 칸을 자동으로 채우고 잠급니다 */
+  const nick = document.getElementById('revNickname');
+  if (currentUser) {
+    nick.value = currentUser.nickname;
+    nick.readOnly = true;
+    nick.classList.add('bg-slate-100');
+    document.getElementById('loginHint').innerHTML =
+      '<b class="text-amber-600">' + currentUser.avatar + ' ' + currentUser.nickname +
+      '</b> 님으로 등록됩니다. 리뷰를 쓰면 <b>10포인트</b>를 받아요!';
+  } else {
+    nick.readOnly = false;
+    nick.classList.remove('bg-slate-100');
+  }
+  renderStars();
+}
+
+function closeWriteReviewModal() {
+  const m = document.getElementById('writeReviewModal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+
+function resetReviewForm() {
+  document.getElementById('revPlaceName').value = '';
+  document.getElementById('revComment').value = '';
+  document.getElementById('revAge').value = '';
+  if (!currentUser) document.getElementById('revNickname').value = '';
+  document.getElementById('factQuestionBox').classList.add('hidden');
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    b.className = 'cat-btn border-2 border-slate-200 rounded-xl py-3 text-center hover:border-amber-400 transition-colors';
+  });
+  selectedCategory = null;
+  selectedPlaceId = null;
+  selectedStars = 0;
+}
+
+function submitReview() {
+  const place = document.getElementById('revPlaceName').value.trim();
+  const nick  = document.getElementById('revNickname').value.trim() || '익명의 친구';
+  const age   = document.getElementById('revAge').value;
+  const text  = document.getElementById('revComment').value.trim();
+
+  if (!place)            { showToast('⚠️ 어디에 다녀왔는지 알려주세요'); return; }
+  if (!selectedCategory) { showToast('⚠️ 어떤 곳인지 골라주세요');       return; }
+  if (!db)               { showToast('⚠️ 데이터베이스에 연결되지 않았어요'); return; }
+
+  /* 체크박스 모으기 */
+  const facts = {};
+  document.querySelectorAll('#factQuestions input[data-fact]').forEach(cb => {
+    facts[cb.dataset.fact] = cb.checked;
+  });
+
+  const review = {
+    placeId   : selectedPlaceId || null,
+    placeName : place,
+    category  : selectedCategory,
+    nickname  : nick,
+    age       : age || '',
+    rating    : selectedStars || 0,
+    comment   : text,
+    facts     : facts,
+    userId    : currentUser ? currentUser.nickname : null,
+    createdAt : Date.now()
+  };
+
+  const btn = document.getElementById('submitReviewBtn');
+  btn.disabled = true; btn.innerText = '저장 중...';
+
+  db.ref('reviews').push(review)
+    .then(() => {
+      if (currentUser) addPoints(10);
+      showToast('✅ 리뷰가 등록되었어요!' + (currentUser ? ' +10P' : ''));
+      resetReviewForm();
+      closeWriteReviewModal();
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('❌ 저장에 실패했어요. 다시 시도해 주세요');
+    })
+    .finally(() => {
+      btn.disabled = false; btn.innerText = '리뷰 등록하기';
+    });
+}
+
+/* 리뷰 목록 그리기 */
+function renderReviews() {
+  const box = document.getElementById('reviewsGridContainer');
+
+  if (!reviewsList.length) {
+    box.innerHTML =
+      '<div class="md:col-span-2 text-center py-16 bg-white rounded-3xl border-2 border-dashed border-slate-300">' +
+        '<div class="text-5xl mb-3">📝</div>' +
+        '<p class="font-jua text-xl text-slate-700 mb-1.5">아직 리뷰가 하나도 없어요</p>' +
+        '<p class="text-xs text-slate-500 mb-5">첫 번째 어린이 눈높이 리뷰를 남겨주세요!</p>' +
+        '<button onclick="openWriteReviewModal()" class="font-jua text-sm bg-amber-400 hover:bg-amber-500 text-slate-900 px-5 py-2.5 rounded-xl">리뷰 쓰기</button>' +
+      '</div>';
+    return;
+  }
+
+  const CAT = { food:{n:'식당',c:'bg-amber-100 text-amber-700'},
+                stay:{n:'숙소',c:'bg-sky-100 text-sky-700'},
+                play:{n:'놀이·체험',c:'bg-green-100 text-green-700'} };
+
+  box.innerHTML = reviewsList.map(r => {
+    const cat = CAT[r.category] || { n:'기타', c:'bg-slate-100 text-slate-600' };
+    const yes = r.facts ? Object.values(r.facts).filter(Boolean).length : 0;
+    const tot = r.facts ? Object.keys(r.facts).length : 0;
+    const d = r.createdAt ? new Date(r.createdAt) : null;
+    const ds = d ? d.getFullYear() + '. ' + (d.getMonth()+1) + '. ' + d.getDate() + '.' : '';
+
+    return '<div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">' +
+      '<div class="flex items-start justify-between gap-2 mb-2.5">' +
+        '<span class="text-[10px] font-bold px-2.5 py-1 rounded-full ' + cat.c + '">' + cat.n + '</span>' +
+        '<span class="text-[11px] text-slate-400">' + ds + '</span>' +
+      '</div>' +
+      '<h3 class="font-jua text-lg text-slate-800 mb-1">' + escapeHtml(r.placeName) + '</h3>' +
+      '<div class="text-sm mb-2.5">' + '⭐'.repeat(r.rating||0) + '<span class="text-slate-300">' + '☆'.repeat(5-(r.rating||0)) + '</span></div>' +
+      (r.comment ? '<p class="text-xs text-slate-600 leading-relaxed mb-3">' + escapeHtml(r.comment) + '</p>' : '') +
+      '<div class="bg-sky-50 rounded-xl px-3 py-2 text-[11px] text-sky-800 mb-3">' +
+        '아이 눈높이 체크 <b>' + yes + ' / ' + tot + '</b>개 통과' +
+      '</div>' +
+      '<div class="text-[11px] text-slate-500 flex items-center gap-1.5">' +
+        '<span>' + escapeHtml(r.nickname || '익명의 친구') + '</span>' +
+        (r.age ? '<span class="text-slate-300">·</span><span>' + escapeHtml(r.age) + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+
+/* ══════════════════════════════════════════════════════
+   (10) 로그인 · 포인트 · 아바타
+   ------------------------------------------------------
+   이름·이메일을 받지 않습니다. 별명과 숫자 4자리만 씁니다.
+   진짜 인증은 아니지만, 아이들에게 개인정보를 묻지 않는 게 더 중요합니다.
+   ══════════════════════════════════════════════════════ */
+
+const AVATARS = [
+  { emoji:'🐣', need:0 },   { emoji:'🐥', need:0 },   { emoji:'🐰', need:0 },
+  { emoji:'🐱', need:20 },  { emoji:'🐶', need:20 },  { emoji:'🦊', need:40 },
+  { emoji:'🐼', need:40 },  { emoji:'🦁', need:60 },  { emoji:'🐬', need:60 },
+  { emoji:'🦄', need:100 }
+];
+
+let currentUser = null;   // { nickname, points, avatar }
+
+function openLoginModal() {
+  const m = document.getElementById('loginModal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+  document.getElementById('loginMsg').classList.add('hidden');
+}
+function closeLoginModal() {
+  const m = document.getElementById('loginModal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+
+function doLogin() {
+  const nick = document.getElementById('loginNick').value.trim();
+  const pin  = document.getElementById('loginPin').value.trim();
+  const msg  = document.getElementById('loginMsg');
+
+  const fail = t => { msg.innerText = t; msg.classList.remove('hidden'); };
+
+  if (nick.length < 2)          return fail('별명은 2글자 이상으로 지어주세요.');
+  if (!/^\d{4}$/.test(pin))     return fail('비밀번호는 숫자 4자리예요.');
+  if (!db)                      return fail('데이터베이스에 연결되지 않았어요.');
+
+  const key = nick.replace(/[.#$/\[\]]/g, '_');   // Firebase 키에 못 쓰는 글자 정리
+
+  db.ref('users/' + key).get().then(snap => {
+    if (snap.exists()) {
+      const u = snap.val();
+      if (u.pin !== pin) return fail('비밀번호가 달라요. 다시 확인해 주세요.');
+      currentUser = { nickname: nick, key: key, points: u.points || 0, avatar: u.avatar || '🐣' };
+    } else {
+      currentUser = { nickname: nick, key: key, points: 0, avatar: '🐣' };
+      db.ref('users/' + key).set({ pin: pin, points: 0, avatar: '🐣' });
+    }
+    localStorage.setItem('withkids_user', JSON.stringify({ nickname: nick, key: key, pin: pin }));
+    updateLoginUI();
+    closeLoginModal();
+    showToast('🎉 ' + currentUser.avatar + ' ' + nick + ' 님, 환영해요!');
+  }).catch(e => { console.error(e); fail('연결에 실패했어요. 잠시 후 다시 시도해 주세요.'); });
+}
+
+function doLogout() {
+  currentUser = null;
+  localStorage.removeItem('withkids_user');
+  updateLoginUI();
+  closeProfileModal();
+  showToast('로그아웃했어요');
+}
+
+/* 새로고침해도 로그인이 유지되도록 */
+function restoreLogin() {
+  const saved = localStorage.getItem('withkids_user');
+  if (!saved || !db) return;
+  let s; try { s = JSON.parse(saved); } catch (e) { return; }
+
+  db.ref('users/' + s.key).get().then(snap => {
+    if (!snap.exists()) return;
+    const u = snap.val();
+    currentUser = { nickname: s.nickname, key: s.key, points: u.points || 0, avatar: u.avatar || '🐣' };
+    updateLoginUI();
+  }).catch(() => {});
+}
+
+function updateLoginUI() {
+  const loginBtn = document.getElementById('loginBtn');
+  const profBtn  = document.getElementById('profileBtn');
+
+  if (currentUser) {
+    loginBtn.classList.add('hidden');
+    profBtn.classList.remove('hidden'); profBtn.classList.add('flex');
+    document.getElementById('profileAvatar').innerText = currentUser.avatar;
+    document.getElementById('profileName').innerText   = currentUser.nickname;
+    document.getElementById('profilePoints').innerText = currentUser.points + 'P';
+  } else {
+    loginBtn.classList.remove('hidden');
+    profBtn.classList.add('hidden'); profBtn.classList.remove('flex');
+  }
+}
+
+function addPoints(n) {
+  if (!currentUser || !db) return;
+  const before = currentUser.points;
+  currentUser.points += n;
+  db.ref('users/' + currentUser.key + '/points').set(currentUser.points);
+  updateLoginUI();
+
+  /* 새 아바타가 열렸는지 확인 */
+  const unlocked = AVATARS.filter(a => a.need > before && a.need <= currentUser.points);
+  if (unlocked.length) {
+    setTimeout(() => showToast('🎁 새 아바타가 열렸어요! ' + unlocked.map(a => a.emoji).join(' ')), 900);
+  }
+}
+
+function openProfileModal() {
+  if (!currentUser) return;
+  const m = document.getElementById('profileModal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+
+  document.getElementById('bigAvatar').innerText = currentUser.avatar;
+  document.getElementById('bigName').innerText   = currentUser.nickname;
+  document.getElementById('bigPoints').innerText = currentUser.points;
+
+  document.getElementById('avatarGrid').innerHTML = AVATARS.map(a => {
+    const open = currentUser.points >= a.need;
+    const mine = currentUser.avatar === a.emoji;
+    return '<button ' + (open ? 'onclick="pickAvatar(\'' + a.emoji + '\')"' : 'disabled') +
+      ' class="aspect-square rounded-2xl border-2 flex flex-col items-center justify-center transition-colors ' +
+      (mine ? 'border-amber-400 bg-amber-50' : open ? 'border-slate-200 hover:border-amber-300' : 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed') + '">' +
+      '<span class="text-2xl">' + (open ? a.emoji : '🔒') + '</span>' +
+      (open ? '' : '<span class="text-[9px] text-slate-400 mt-0.5">' + a.need + 'P</span>') +
+    '</button>';
+  }).join('');
+}
+function closeProfileModal() {
+  const m = document.getElementById('profileModal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+
+function pickAvatar(emoji) {
+  if (!currentUser || !db) return;
+  currentUser.avatar = emoji;
+  db.ref('users/' + currentUser.key + '/avatar').set(emoji);
+  updateLoginUI();
+  openProfileModal();
+  showToast('아바타를 바꿨어요 ' + emoji);
+}
+
+
+/* ══════════════════════════════════════════════════════
+   카카오 지도 + 장소 검색
+   ══════════════════════════════════════════════════════ */
+let kakaoMap = null, kakaoPlaces = null, kakaoInfo = null;
+let kakaoMarkers = [], kakaoResults = [], kakaoBounds = null;
+
+const PIN_COLOR = { good:'#22C55E', mid:'#FBBF24', bad:'#EF4444', none:'#9CA3AF' };
+
+function makePin(color) {
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 26 34">' +
+      '<path d="M13 33C13 33 25 20.5 25 13A12 12 0 1 0 1 13c0 7.5 12 20 12 20z" fill="' + color + '" stroke="#fff" stroke-width="2.5"/>' +
+      '<circle cx="13" cy="13" r="4.2" fill="#fff"/>' +
+    '</svg>';
+  return new kakao.maps.MarkerImage(
+    'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg),
+    new kakao.maps.Size(28, 36), { offset: new kakao.maps.Point(14, 36) });
+}
+
+function initKakaoMap() {
+  if (typeof kakao === 'undefined' || !kakao.maps) {
+    document.getElementById('kakaoMap').innerHTML =
+      '<div class="p-6 text-xs text-slate-600 leading-relaxed">' +
+      '<b class="text-sm">카카오 지도를 불러오지 못했습니다.</b><br><br>' +
+      '1. 카카오 개발자 → 제품 설정 → 카카오맵 → 활성화 ON<br>' +
+      '2. 플랫폼 키 → JS SDK 도메인에 현재 주소 등록<br>' +
+      '3. 인터넷 연결 확인</div>';
+    return;
+  }
+  kakaoMap = new kakao.maps.Map(document.getElementById('kakaoMap'), {
+    center: new kakao.maps.LatLng(33.4996, 126.5312), level: 9
+  });
+  kakaoPlaces = new kakao.maps.services.Places();
+  kakaoInfo = new kakao.maps.InfoWindow({ zIndex:1 });
+  runKakaoSearch();
+}
+
+function runKakaoSearch() {
+  if (!kakaoPlaces) return;
+  const kw = document.getElementById('kakaoSearchInput').value.trim();
+  if (!kw) return;
+  kakaoPlaces.keywordSearch(kw, kakaoSearchDone, { size: 15 });
+}
+
+function kakaoSearchDone(data, status) {
+  const list = document.getElementById('kakaoResultList');
+
+  if (status !== kakao.maps.services.Status.OK) {
+    kakaoResults = []; clearKakaoMarkers();
+    list.innerHTML = '<p class="text-xs text-slate-400 py-8 text-center">결과가 없어요.<br>다른 이름으로 검색해 보세요.</p>';
+    document.getElementById('mapProgress').innerText = '';
+    return;
+  }
+
+  /* 제주 안에 있는 곳만 남깁니다 */
+  const jeju = data.filter(p =>
+    (p.address_name || '').includes('제주') || (p.road_address_name || '').includes('제주'));
+
+  if (!jeju.length) {
+    kakaoResults = []; clearKakaoMarkers();
+    list.innerHTML = '<p class="text-xs text-slate-400 py-8 text-center">제주에서는 찾지 못했어요.<br>다른 이름으로 검색해 보세요.</p>';
+    document.getElementById('mapProgress').innerText = '';
+    return;
+  }
+
+  kakaoResults = jeju;
+  renderKakaoResults();
+}
+
+function clearKakaoMarkers() {
+  kakaoMarkers.forEach(m => m.setMap(null));
+  kakaoMarkers = [];
+}
+
+function renderKakaoResults() {
+  if (!kakaoResults.length || !kakaoMap) return;
+
+  const list = document.getElementById('kakaoResultList');
+  list.innerHTML = '';
+  clearKakaoMarkers();
+  kakaoBounds = new kakao.maps.LatLngBounds();
+
+  const LABEL = { good:'아이에게 편해요', mid:'보통이에요', bad:'불편한 점이 있어요' };
+  const CHIP  = { good:'bg-green-100 text-green-700', mid:'bg-amber-100 text-amber-700', bad:'bg-red-100 text-red-700' };
+
+  kakaoResults.forEach((place, i) => {
+    const g = gradePlace(place.id);
+    const pos = new kakao.maps.LatLng(place.y, place.x);
+
+    const marker = new kakao.maps.Marker({ map:kakaoMap, position:pos, image:makePin(g ? PIN_COLOR[g] : PIN_COLOR.none) });
+    kakao.maps.event.addListener(marker, 'click', () => focusKakaoPlace(i));
+    kakaoMarkers.push(marker);
+    kakaoBounds.extend(pos);
+
+    const count = reviewsList.filter(r => r.placeId === place.id).length;
+
+    const card = document.createElement('div');
+    card.className = 'bg-white border border-slate-200 rounded-xl p-3 hover:border-brandBlue transition-colors cursor-pointer';
+    card.innerHTML =
+      '<div class="flex items-start gap-2.5">' +
+        '<span class="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style="background:' + (g ? PIN_COLOR[g] : PIN_COLOR.none) + '"></span>' +
+        '<div class="flex-grow min-w-0">' +
+          '<div class="font-bold text-sm text-slate-800 truncate">' + place.place_name + '</div>' +
+          '<div class="text-[11px] text-slate-500 truncate">' + (place.road_address_name || place.address_name) + '</div>' +
+          (g ? '<span class="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-bold ' + CHIP[g] + '">' + LABEL[g] + ' · 리뷰 ' + count + '개</span>'
+             : '<div class="text-[11px] text-slate-400 mt-1">아직 어린이 리뷰가 없어요</div>' +
+               '<button class="kakao-write mt-1.5 text-[11px] font-bold text-amber-600 border border-amber-400 px-2.5 py-1 rounded-lg hover:bg-amber-400 hover:text-white transition-colors">✏️ 첫 리뷰 남기기</button>') +
+        '</div>' +
+      '</div>';
+
+    card.addEventListener('click', e => {
+      if (e.target.classList.contains('kakao-write')) { openReviewForPlace(place); return; }
+      focusKakaoPlace(i);
+    });
+    list.appendChild(card);
+  });
+
+  kakaoMap.setBounds(kakaoBounds);
+  updateMapProgress();
+}
+
+function focusKakaoPlace(i) {
+  const p = kakaoResults[i];
+  kakaoMap.panTo(new kakao.maps.LatLng(p.y, p.x));
+  kakaoInfo.setContent('<div style="padding:6px 10px;font-size:12px;white-space:nowrap">' + p.place_name + '</div>');
+  kakaoInfo.open(kakaoMap, kakaoMarkers[i]);
+}
+
+function updateMapProgress() {
+  const filled = kakaoResults.filter(p => gradePlace(p.id)).length;
+  const pct = Math.round(filled / kakaoResults.length * 100);
+  document.getElementById('mapProgress').innerHTML =
+    '검색된 <b>' + kakaoResults.length + '곳</b> 중 리뷰가 있는 곳 <b class="text-amber-600">' + filled + '곳 (' + pct + '%)</b>';
+}
+
+/* 지도에서 고른 장소로 리뷰 모달 열기 — 시설 종류를 자동으로 추측해 줍니다 */
+function openReviewForPlace(place) {
+  selectedPlaceId = place.id;
+  openWriteReviewModal();
+  document.getElementById('revPlaceName').value = place.place_name;
+
+  const cg = place.category_group_code;   // FD6=음식점, CE7=카페, AD5=숙박, AT4=관광명소, CT1=문화시설
+  if (cg === 'FD6' || cg === 'CE7')      selectCategory('food');
+  else if (cg === 'AD5')                 selectCategory('stay');
+  else if (cg === 'AT4' || cg === 'CT1') selectCategory('play');
+
+  showToast('📍 ' + place.place_name + ' 리뷰를 써 주세요!');
+}
+
+function refreshKakaoMap() {
+  if (kakaoMap) {
+    kakaoMap.relayout();
+    if (kakaoBounds) kakaoMap.setBounds(kakaoBounds);
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   탭 · 모달 · 토스트
+   ══════════════════════════════════════════════════════ */
+function switchTab(tab) {
+  ['main','tours','reviews'].forEach(t => {
+    document.getElementById('page-' + t).classList.add('hidden');
+    document.getElementById('nav-' + t).className =
+      'nav-btn font-jua text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-full whitespace-nowrap transition-all text-slate-600 hover:bg-slate-100';
+  });
+  document.getElementById('page-' + tab).classList.remove('hidden');
+
+  const active = { main:'bg-brandBlue text-white shadow-md',
+                   tours:'bg-brandBlue text-white shadow-md',
+                   reviews:'bg-amber-400 text-slate-900 font-bold shadow-md' }[tab];
+  document.getElementById('nav-' + tab).className =
+    'nav-btn font-jua text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-full whitespace-nowrap transition-all ' + active;
+
+  window.scrollTo({ top:0, behavior:'smooth' });
+  if (tab === 'reviews') setTimeout(refreshKakaoMap, 60);
+}
+
+function openBookingModal(title, price) {
+  document.getElementById('bookingTitle').innerText = title;
+  document.getElementById('bookingPrice').innerText = price === '견적 문의' ? price : price + '원';
+  const m = document.getElementById('bookingModal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+}
+function closeBookingModal() {
+  const m = document.getElementById('bookingModal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'bg-slate-800 text-white text-sm px-5 py-3 rounded-2xl shadow-xl transition-all duration-300';
+  t.innerText = msg;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => { t.classList.add('opacity-0','translate-y-4'); setTimeout(() => t.remove(), 300); }, 2800);
+}
+
+/* 모달 바깥을 누르면 닫기 */
+['writeReviewModal','loginModal','profileModal','bookingModal'].forEach(id => {
+  document.addEventListener('click', e => {
+    const m = document.getElementById(id);
+    if (e.target === m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+  });
+});
+
+document.getElementById('kakaoSearchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runKakaoSearch();
+});
+
+
+/* ══════════════════════════════════════════════════════
+   시작
+   ══════════════════════════════════════════════════════ */
+window.addEventListener('load', function () {
+  switchTab('main');
+  renderReviews();
+  listenReviews();
+  restoreLogin();
+  setTimeout(initKakaoMap, 100);
+});
+</script>
+</body>
+</html>
